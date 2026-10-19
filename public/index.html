@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#101714">
+    <title>Chi Po · Card Game</title>
+    <link rel="stylesheet" href="/style.css">
+    <script src="/app.js" defer></script>
+  </head>
+  <body>
+    <main class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="Chi Po home">
+          <span class="brand-mark">♠</span>
+          <span>CHI PO<span class="brand-light"> / CARD TABLE</span></span>
+        </a>
+        <div class="topbar-right">
+          <span class="live-indicator"><span></span> PRIVATE ROOMS</span>
+          <span id="game-number" class="game-number">GAME 01</span>
+        </div>
+      </header>
+
+      <section id="room-setup" class="room-screen" aria-label="Create or join a Chi Po room">
+        <div class="room-card">
+          <span class="eyebrow">PLAY WITH FRIENDS</span>
+          <h1>Get a table together.</h1>
+          <p class="room-intro">Create a private room, then share its code so your friends can join from their phones.</p>
+          <div class="room-forms">
+            <form id="create-room-form" class="room-form">
+              <h2>Create a room</h2>
+              <label>Your name<input id="create-name" name="name" maxlength="20" autocomplete="nickname" required placeholder="Enter your name"></label>
+              <label>Room size<select id="room-size" name="maxPlayers"><option value="2">2 players</option><option value="3">3 players</option><option value="4" selected>4 players</option></select></label>
+              <button class="action-button primary" type="submit">Create room</button>
+            </form>
+            <form id="join-room-form" class="room-form">
+              <h2>Join a room</h2>
+              <label>Your name<input id="join-name" name="name" maxlength="20" autocomplete="nickname" required placeholder="Enter your name"></label>
+              <label>Room code<input id="join-code" name="code" maxlength="6" autocomplete="off" required placeholder="6-letter code"></label>
+              <button class="action-button" type="submit">Join room</button>
+            </form>
+          </div>
+          <p id="room-error" class="error-message" role="alert"></p>
+        </div>
+      </section>
+
+      <section id="room-lobby" class="room-screen" aria-label="Room lobby" hidden>
+        <div class="room-card">
+          <span class="eyebrow">ROOM LOBBY</span>
+          <h1>Invite your friends.</h1>
+          <p class="room-intro">Share this room code. Everyone can join on a phone using the same website.</p>
+          <div class="invite-row"><strong id="room-code-display">------</strong><button id="copy-invite" class="action-button" type="button">Copy invite link</button></div>
+          <p id="invite-feedback" class="invite-feedback" aria-live="polite"></p>
+          <h2 class="roster-title">Players <span id="room-player-total"></span></h2>
+          <ul id="room-roster" class="room-roster"></ul>
+          <div class="lobby-controls"><p id="lobby-message" class="room-intro"></p><button id="start-game-button" class="action-button primary" type="button">Start game</button></div>
+          <p id="lobby-error" class="error-message" role="alert"></p>
+        </div>
+      </section>
+
+      <section id="game-layout" class="game-layout" aria-label="Chi Po game" hidden>
+        <div class="table-column">
+          <section class="table-stage">
+            <div class="table-heading">
+              <div><span class="eyebrow">THE TABLE</span><h1>Chi Po</h1></div>
+              <span id="table-room-code" class="table-room-code"></span>
+            </div>
+
+            <div class="table-rim">
+              <div class="poker-table">
+                <div class="table-label">3♦ STARTS <span>·</span> SHED YOUR HAND</div>
+                <article id="seat-2" class="seat seat-top-left">
+                  <div class="avatar">A2</div><div class="seat-info"><span class="player-name">AI 2</span><span class="player-count">0 cards</span></div>
+                  <div class="opponent-cards"></div><span class="seat-status"></span>
+                </article>
+                <article id="seat-3" class="seat seat-top-right">
+                  <div class="avatar">A3</div><div class="seat-info"><span class="player-name">AI 3</span><span class="player-count">0 cards</span></div>
+                  <div class="opponent-cards"></div><span class="seat-status"></span>
+                </article>
+                <article id="seat-1" class="seat seat-left">
+                  <div class="avatar">A1</div><div class="seat-info"><span class="player-name">AI 1</span><span class="player-count">0 cards</span></div>
+                  <div class="opponent-cards"></div><span class="seat-status"></span>
+                </article>
+                <div class="board">
+                  <div class="round-meta"><span id="direction">CLOCKWISE</span><span id="trick-leader">LEAD —</span></div>
+                  <div id="played-hand" class="played-hand" aria-label="Current play"></div>
+                  <p id="table-message" class="table-message" aria-live="polite">Setting up the table…</p>
+                </div>
+                <article id="seat-0" class="seat seat-human">
+                  <div class="avatar human-avatar">YOU</div><div class="seat-info"><span class="player-name">YOU</span><span class="player-count">0 cards</span></div>
+                  <span class="seat-status"></span>
+                </article>
+              </div>
+            </div>
+            <div class="table-footer">
+              <span><span class="footer-dot"></span><span id="players-in-game">4 PLAYERS</span></span>
+              <span id="burn-note">1 CARD BURNED</span>
+              <span id="finish-line">FIRST OUT WINS</span>
+            </div>
+          </section>
+
+          <section class="action-panel" aria-label="Your hand and actions">
+            <div class="action-heading">
+              <div><span class="eyebrow">YOUR HAND</span><h2 id="action-title">Waiting for your turn</h2></div>
+              <strong id="hand-count" class="hand-count">0 cards</strong>
+            </div>
+            <div id="hand-cards" class="hand-cards" aria-label="Select cards to play"></div>
+            <div class="action-controls">
+              <button id="play-button" class="action-button primary" type="button">Play selected</button>
+              <button id="pass-button" class="action-button" type="button">Pass</button>
+              <button id="new-game-button" class="action-button new-game-button" type="button">New game</button>
+            </div>
+            <div id="error-message" class="error-message" role="alert"></div>
+          </section>
+        </div>
+
+        <aside class="side-column">
+          <section class="panel session-panel">
+            <div class="panel-heading"><span class="eyebrow">GAME STATUS</span><span class="panel-icon">◉</span></div>
+            <div class="status-row"><span>Current play</span><strong id="status-play">—</strong></div>
+            <div class="status-row"><span>Cards in your hand</span><strong id="status-cards">0</strong></div>
+            <div class="status-row"><span>Direction</span><strong id="status-direction">Clockwise</strong></div>
+            <div class="status-row"><span>Places</span><strong id="status-places">—</strong></div>
+          </section>
+          <section class="panel log-panel">
+            <div class="panel-heading"><span class="eyebrow">TABLE HISTORY</span><span class="log-count">LATEST</span></div>
+            <ol id="game-log" class="game-log" aria-live="polite"></ol>
+          </section>
+          <section class="panel rules-panel">
+            <div class="panel-heading"><span class="eyebrow">QUICK RULES</span></div>
+            <p>3♦ opens. The first legal response sets direction for the game. Match the hand type and beat it; a boat beats a straight. A bomb beats any hand.</p>
+            <p>When everyone else passes, the last player to play leads the next hand.</p>
+            <p>Ranks: 3 → A → 2 · Suits: ♦ ♣ ♥ ♠</p>
+          </section>
+        </aside>
+      </section>
+      <footer class="page-footer"><span>CHI PO</span><span>PLAY A HAND · PASS OR BEAT · EMPTY YOUR HAND</span></footer>
+    </main>
+  </body>
+</html>
