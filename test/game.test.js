@@ -28,6 +28,37 @@ test('classifies pairs, triples, straights, boats, and bombs', () => {
   assert.equal(classifyPlay(['A', '2', '3', '4', '5'].map((rank) => card(rank, '♦'))), null);
 });
 
+test('records and displays a played straight from low rank to high rank', () => {
+  const game = new WebGame();
+  game.runAiTurns = () => {};
+  game.startNewGame(2);
+  const player = game.players[0];
+  const straight = ['3', '4', '5', '6', '7'].map((rank) => card(rank, '♦'));
+  player.hand = [...straight];
+  game.turnIndex = 0;
+  game.openingLead = false;
+  game.directionLocked = true;
+  game.currentPlay = null;
+
+  game.playCards(player, straight.slice().reverse().map((entry) => entry.id));
+
+  assert.deepEqual(game.currentPlay.cards.map((entry) => entry.rank), ['3', '4', '5', '6', '7']);
+  assert.ok(game.log.some((entry) => entry.includes('3♦ 4♦ 5♦ 6♦ 7♦')));
+});
+
+test('increments turn sequence when the game advances to another player', () => {
+  const game = new WebGame();
+  game.runAiTurns = () => {};
+  game.startNewGame(2);
+  const previousSequence = game.turnSequence;
+  const player = game.players[game.turnIndex];
+  const openingCard = player.hand.find((entry) => entry.id === '3-♦');
+
+  game.playCards(player, [openingCard.id]);
+
+  assert.equal(game.turnSequence, previousSequence + 1);
+});
+
 test('compares same-rank pairs by their highest suit and handles cross-type plays', () => {
   const lowPair = classifyPlay([card('5', '♦'), card('5', '♥')]);
   const highPair = classifyPlay([card('5', '♣'), card('5', '♠')]);

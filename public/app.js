@@ -12,6 +12,11 @@ let credentials = savedRoom && typeof savedRoom.roomCode === 'string' && typeof 
   : null;
 let currentState = null;
 let busy = false;
+let pendingDeckChoice = null;
+let soundEnabled = localStorage.getItem('chiPoTurnSound') !== 'off';
+let lastNotifiedTurnKey = null;
+const turnAudio = new Audio('/audio/turn-notification.wav');
+turnAudio.preload = 'auto';
 const queryRoom = new URLSearchParams(window.location.search).get('room');
 if (queryRoom && credentials?.roomCode !== queryRoom.toUpperCase()) {
   credentials = null;
@@ -44,6 +49,43 @@ function showScreen(screen) {
   document.querySelector('#game-layout').hidden = screen !== 'game';
 }
 
+function renderChat(messages = []) {
+  for (const list of document.querySelectorAll('.chat-messages')) {
+    const previousLastId = list.lastElementChild?.dataset.messageId;
+    const wasAtBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 32;
+    list.replaceChildren();
+    if (messages.length === 0) {
+      const empty = document.createElement('li');
+      empty.className = 'empty-chat';
+      empty.textContent = 'Messages will appear here.';
+      list.append(empty);
+      continue;
+    }
+    for (const message of messages) {
+      const item = document.createElement('li');
+      item.dataset.messageId = message.id;
+      const heading = document.createElement('div');
+      heading.className = 'chat-message-heading';
+      const sender = document.createElement('strong');
+      sender.textContent = message.playerName;
+      const time = document.createElement('time');
+      time.dateTime = new Date(message.sentAt).toISOString();
+      time.textContent = new Date(message.sentAt).toLocaleTimeString([], {
+        hour: 'numeric',
+        minute: '2-digit',
+      });
+      const text = document.createElement('p');
+      text.textContent = message.text;
+      heading.append(sender, time);
+      item.append(heading, text);
+      list.append(item);
+    }
+    if (!previousLastId || previousLastId !== messages[messages.length - 1].id) {
+      if (wasAtBottom || !previousLastId) list.scrollTop = list.scrollHeight;
+    }
+  }
+}
+
 function renderLobby(state) {
   showScreen('lobby');
   document.querySelector('#room-code-display').textContent = state.roomCode;
@@ -52,22 +94,56 @@ function renderLobby(state) {
   document.querySelector('#start-game-button').hidden = !state.isHost;
   document.querySelector('#start-game-button').disabled = busy || state.lobbyPlayers.length < 2;
   document.querySelector('#lobby-error').textContent = '';
+  renderChat(state.chat);
   const roster = document.querySelector('#room-roster');
   roster.replaceChildren();
   for (const player of state.lobbyPlayers) {
     const item = document.createElement('li');
+    const identity = document.createElement('span');
+    identity.className = 'room-player-identity';
     const playerName = document.createElement('span');
     playerName.textContent = player.name + (player.isYou ? ' (you)' : '');
+    const deckName = document.createElement('span');
+    deckName.className = 'room-player-deck';
+    deckName.textContent = player.deckName;
+    identity.append(playerName, deckName);
+    const preview = document.createElement('span');
+    preview.className = `deck-swatch deck-back--${player.deckId}`;
+    preview.setAttribute('aria-hidden', 'true');
     const badge = document.createElement('span');
     badge.className = player.isHost ? 'host-badge' : 'player-badge';
     badge.textContent = player.isHost ? 'HOST' : 'JOINED';
-    item.append(playerName, badge);
+    item.append(identity, preview, badge);
     roster.append(item);
   }
+
+  const ownPlayer = state.lobbyPlayers.find((player) => player.isYou);
+  const selectedDeckId = pendingDeckChoice ?? ownPlayer.deckId;
+  const options = document.querySelector('#deck-options');
+  options.replaceChildren();
+  for (const design of state.deckDesigns) {
+    const option = document.createElement('button');
+    option.type = 'button';
+    option.className = `deck-option${selectedDeckId === design.id ? ' is-selected' : ''}`;
+    option.dataset.deckId = design.id;
+    option.setAttribute('role', 'radio');
+    option.setAttribute('aria-checked', String(selectedDeckId === design.id));
+    const preview = document.createElement('span');
+    preview.className = `deck-option-preview deck-back--${design.id}`;
+    preview.setAttribute('aria-hidden', 'true');
+    const label = document.createElement('span');
+    label.textContent = design.name;
+    option.append(preview, label);
+    options.append(option);
+  }
+  document.querySelector('#save-deck-button').disabled =
+    busy || !pendingDeckChoice || pendingDeckChoice === ownPlayer.deckId;
 }
 
 function renderGame(state) {
   showScreen('game');
+  pendingDeckChoice = null;
+  renderChat(state.chat);
   selectedCards.forEach((cardId) => {
     if (!state.hand.some((card) => card.id === cardId)) selectedCards.delete(cardId);
   });
@@ -103,6 +179,17 @@ function renderGame(state) {
     seat.querySelector('.player-count').textContent = player.isOut
       ? `OUT · #${player.finishPlace}`
       : `${player.handCount} card${player.handCount === 1 ? '' : 's'}`;
+    const backs = seat.querySelector('.opponent-cards');
+    backs.replaceChildren();
+    if (player.id !== state.yourPlayerId && !player.isOut) {
+      backs.setAttribute('aria-label', `${player.name}'s ${player.deckName} cards`);
+      for (let cardIndex = 0; cardIndex < Math.min(player.handCount, 3); cardIndex++) {
+        const back = document.createElement('span');
+        back.className = `card-back deck-back--${player.deckId}`;
+        back.setAttribute('aria-hidden', 'true');
+        backs.append(back);
+      }
+    }
     const status = seat.querySelector('.seat-status');
     status.textContent = player.isOut ? `#${player.finishPlace}` : player.isTurn ? 'YOUR TURN' : '';
   }
@@ -152,6 +239,9 @@ function renderGame(state) {
     ? 'Game over'
     : state.canAct ? 'Your turn' : 'Waiting for your turn';
   document.querySelector('#new-game-button').disabled = busy || !state.isHost;
+  const soundToggle = document.querySelector('#turn-sound-toggle');
+  soundToggle.textContent = `Turn sound: ${soundEnabled ? 'on' : 'off'}`;
+  soundToggle.setAttribute('aria-pressed', String(soundEnabled));
   document.querySelector('#error-message').textContent = '';
   if (state.openingLead && state.canAct) {
     document.querySelector('#action-title').textContent = 'Your lead must include 3♦';
@@ -159,9 +249,26 @@ function renderGame(state) {
 }
 
 function render(state) {
+  if (state.stage !== 'lobby' && state.canAct) {
+    const turnKey = `${state.roomCode}:${state.gameNumber}:${state.turnSequence}`;
+    if (turnKey !== lastNotifiedTurnKey) {
+      lastNotifiedTurnKey = turnKey;
+      if (soundEnabled) playTurnSound();
+    }
+  }
   currentState = state;
   if (state.stage === 'lobby') renderLobby(state);
   else renderGame(state);
+}
+
+function playTurnSound() {
+  turnAudio.currentTime = 0;
+  turnAudio.play().then(() => {
+    document.querySelector('#turn-sound-status').textContent = '';
+  }).catch(() => {
+    document.querySelector('#turn-sound-status').textContent =
+      'Tap “Turn sound: on” to allow turn alerts on this device.';
+  });
 }
 
 async function request(path, data, useRoomToken = true) {
@@ -237,11 +344,66 @@ document.querySelector('#join-room-form').addEventListener('submit', async (even
   }
 });
 
+for (const form of document.querySelectorAll('.chat-form')) {
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (busy || !credentials) return;
+    const input = form.elements.message;
+    const error = form.parentElement.querySelector('.chat-error');
+    const button = form.querySelector('button[type="submit"]');
+    const message = input.value;
+    error.textContent = '';
+    button.disabled = true;
+    try {
+      const state = await request(`/api/rooms/${credentials.roomCode}/chat`, { message });
+      input.value = '';
+      render(state);
+    } catch (requestError) {
+      error.textContent = requestError.message;
+    } finally {
+      button.disabled = false;
+      input.focus();
+    }
+  });
+}
+
 document.querySelector('#start-game-button').addEventListener('click', () => {
   performRoomAction('start', {});
 });
+document.querySelector('#deck-options').addEventListener('click', (event) => {
+  const option = event.target.closest('button[data-deck-id]');
+  if (!option || busy || !currentState || currentState.stage !== 'lobby') return;
+  pendingDeckChoice = option.dataset.deckId;
+  document.querySelector('#deck-error').textContent = '';
+  renderLobby(currentState);
+});
+document.querySelector('#save-deck-button').addEventListener('click', async () => {
+  if (busy || !credentials || !pendingDeckChoice) return;
+  busy = true;
+  document.querySelector('#save-deck-button').disabled = true;
+  document.querySelector('#deck-error').textContent = '';
+  try {
+    const state = await request(`/api/rooms/${credentials.roomCode}/deck`, { deckId: pendingDeckChoice });
+    pendingDeckChoice = null;
+    busy = false;
+    render(state);
+  } catch (error) {
+    busy = false;
+    renderLobby(currentState);
+    document.querySelector('#deck-error').textContent = error.message;
+  }
+});
 document.querySelector('#new-game-button').addEventListener('click', () => {
   performRoomAction('new-game', {});
+});
+document.querySelector('#turn-sound-toggle').addEventListener('click', () => {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('chiPoTurnSound', soundEnabled ? 'on' : 'off');
+  const button = document.querySelector('#turn-sound-toggle');
+  button.textContent = `Turn sound: ${soundEnabled ? 'on' : 'off'}`;
+  button.setAttribute('aria-pressed', String(soundEnabled));
+  document.querySelector('#turn-sound-status').textContent = '';
+  if (soundEnabled) playTurnSound();
 });
 document.querySelector('#play-button').addEventListener('click', () => {
   performRoomAction('action', { action: 'play', cardIds: [...selectedCards] });

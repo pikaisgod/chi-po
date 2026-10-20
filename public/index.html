@@ -53,7 +53,26 @@
           <p id="invite-feedback" class="invite-feedback" aria-live="polite"></p>
           <h2 class="roster-title">Players <span id="room-player-total"></span></h2>
           <ul id="room-roster" class="room-roster"></ul>
+          <div class="deck-picker">
+            <div>
+              <h2>Choose your deck</h2>
+              <p class="room-intro">Everyone in the room will see your card-back design.</p>
+            </div>
+            <div id="deck-options" class="deck-options" role="radiogroup" aria-label="Choose a deck design"></div>
+            <button id="save-deck-button" class="action-button primary" type="button" disabled>Save deck choice</button>
+            <p id="deck-error" class="error-message" role="alert"></p>
+          </div>
           <div class="lobby-controls"><p id="lobby-message" class="room-intro"></p><button id="start-game-button" class="action-button primary" type="button">Start game</button></div>
+          <section class="chat-panel lobby-chat" aria-label="Room chat">
+            <div class="panel-heading"><span class="eyebrow">ROOM CHAT</span></div>
+            <ol id="lobby-chat-messages" class="chat-messages" aria-live="polite"></ol>
+            <form class="chat-form">
+              <label class="visually-hidden" for="lobby-chat-input">Chat message</label>
+              <input id="lobby-chat-input" name="message" maxlength="300" autocomplete="off" placeholder="Write a message…" required>
+              <button class="action-button primary" type="submit">Send</button>
+            </form>
+            <p class="chat-error" role="alert"></p>
+          </section>
           <p id="lobby-error" class="error-message" role="alert"></p>
         </div>
       </section>
@@ -88,6 +107,7 @@
                 </div>
                 <article id="seat-0" class="seat seat-human">
                   <div class="avatar human-avatar">YOU</div><div class="seat-info"><span class="player-name">YOU</span><span class="player-count">0 cards</span></div>
+                  <div class="opponent-cards"></div>
                   <span class="seat-status"></span>
                 </article>
               </div>
@@ -108,8 +128,10 @@
             <div class="action-controls">
               <button id="play-button" class="action-button primary" type="button">Play selected</button>
               <button id="pass-button" class="action-button" type="button">Pass</button>
+              <button id="turn-sound-toggle" class="action-button sound-toggle" type="button" aria-pressed="true">Turn sound: on</button>
               <button id="new-game-button" class="action-button new-game-button" type="button">New game</button>
             </div>
+            <p id="turn-sound-status" class="turn-sound-status" aria-live="polite"></p>
             <div id="error-message" class="error-message" role="alert"></div>
           </section>
         </div>
@@ -125,6 +147,16 @@
           <section class="panel log-panel">
             <div class="panel-heading"><span class="eyebrow">TABLE HISTORY</span><span class="log-count">LATEST</span></div>
             <ol id="game-log" class="game-log" aria-live="polite"></ol>
+          </section>
+          <section class="panel chat-panel game-chat" aria-label="Room chat">
+            <div class="panel-heading"><span class="eyebrow">ROOM CHAT</span></div>
+            <ol id="game-chat-messages" class="chat-messages" aria-live="polite"></ol>
+            <form class="chat-form">
+              <label class="visually-hidden" for="game-chat-input">Chat message</label>
+              <input id="game-chat-input" name="message" maxlength="300" autocomplete="off" placeholder="Write a message…" required>
+              <button class="action-button primary" type="submit">Send</button>
+            </form>
+            <p class="chat-error" role="alert"></p>
           </section>
           <section class="panel rules-panel">
             <div class="panel-heading"><span class="eyebrow">QUICK RULES</span></div>

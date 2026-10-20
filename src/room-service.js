@@ -4,6 +4,17 @@ const { WebGame } = require('./web-game');
 const ROOM_CODE_CHARACTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const ROOM_IDLE_LIMIT = 8 * 60 * 60 * 1000;
 const MAX_ROOMS = 1000;
+const MAX_CHAT_MESSAGES = 100;
+const MAX_CHAT_MESSAGE_LENGTH = 300;
+const DECK_DESIGNS = [
+  { id: 'classic', name: 'Classic Green' },
+  { id: 'ocean', name: 'Ocean Blue' },
+  { id: 'crimson', name: 'Crimson Gold' },
+  { id: 'violet', name: 'Violet Night' },
+  { id: 'sunset', name: 'Sunset' },
+];
+const DECK_DESIGN_IDS = new Set(DECK_DESIGNS.map((design) => design.id));
+const DECK_DESIGN_NAMES = new Map(DECK_DESIGNS.map(({ id, name }) => [id, name]));
 
 function randomRoomCode() {
   return Array.from(randomBytes(6), (byte) => ROOM_CODE_CHARACTERS[byte % ROOM_CODE_CHARACTERS.length]).join('');
@@ -48,12 +59,19 @@ class RoomService {
     this.pruneRooms();
     let code = randomRoomCode();
     while (this.rooms.has(code)) code = randomRoomCode();
-    const host = { id: randomUUID(), token: randomToken(), name: playerName, isHost: true };
+    const host = {
+      id: randomUUID(),
+      token: randomToken(),
+      name: playerName,
+      isHost: true,
+      deckId: 'classic',
+    };
     const room = {
       code,
       maxPlayers,
       players: [host],
       game: null,
+      chat: [],
       lastActivity: Date.now(),
     };
     this.rooms.set(code, room);
@@ -68,9 +86,26 @@ class RoomService {
     if (room.players.some((player) => player.name.toLowerCase() === playerName.toLowerCase())) {
       throw new Error('That name is already being used in this room.');
     }
-    const player = { id: randomUUID(), token: randomToken(), name: playerName, isHost: false };
+    const player = {
+      id: randomUUID(),
+      token: randomToken(),
+      name: playerName,
+      isHost: false,
+      deckId: 'classic',
+    };
     room.players.push(player);
     return { roomCode: room.code, token: player.token, state: this.state(room, player) };
+  }
+
+  setDeckDesign(code, token, deckId) {
+    const room = this.getRoom(code);
+    const player = this.findPlayer(room, token);
+    if (room.game) throw new Error('Deck designs can only be changed in the lobby.');
+    if (typeof deckId !== 'string' || !DECK_DESIGN_IDS.has(deckId)) {
+      throw new Error('Choose one of the available deck designs.');
+    }
+    player.deckId = deckId;
+    return this.state(room, player);
   }
 
   startGame(code, token) {
@@ -109,10 +144,42 @@ class RoomService {
     return this.state(room, player);
   }
 
+  sendChat(code, token, message) {
+    const room = this.getRoom(code);
+    const player = this.findPlayer(room, token);
+    if (typeof message !== 'string') throw new Error('Enter a chat message.');
+    const text = message.trim();
+    if (!text || text.length > MAX_CHAT_MESSAGE_LENGTH) {
+      throw new Error(`Chat messages must be between 1 and ${MAX_CHAT_MESSAGE_LENGTH} characters.`);
+    }
+    room.chat.push({
+      id: randomUUID(),
+      playerId: player.id,
+      playerName: player.name,
+      text,
+      sentAt: Date.now(),
+    });
+    if (room.chat.length > MAX_CHAT_MESSAGES) room.chat.shift();
+    return this.state(room, player);
+  }
+
   state(room, viewer) {
-    const result = room.game
-      ? room.game.view(viewer.id)
-      : {
+    let result;
+    if (room.game) {
+      const gameState = room.game.view(viewer.id);
+      result = {
+        ...gameState,
+        players: gameState.players.map((gamePlayer) => {
+          const roomPlayer = room.players.find((entry) => entry.id === gamePlayer.id);
+          return {
+            ...gamePlayer,
+            deckId: roomPlayer.deckId,
+            deckName: DECK_DESIGN_NAMES.get(roomPlayer.deckId),
+          };
+        }),
+      };
+    } else {
+      result = {
         stage: 'lobby',
         message: room.players.length < 2
           ? 'Share the room code with your friends. The host can start once someone joins.'
@@ -124,18 +191,23 @@ class RoomService {
           isYou: player.id === viewer.id,
         })),
       };
+    }
     return {
       ...result,
       roomCode: room.code,
       maxPlayers: room.maxPlayers,
       isHost: viewer.isHost,
       yourPlayerId: viewer.id,
+      chat: room.chat,
       lobbyPlayers: room.players.map((player) => ({
         id: player.id,
         name: player.name,
         isHost: player.isHost,
         isYou: player.id === viewer.id,
+        deckId: player.deckId,
+        deckName: DECK_DESIGN_NAMES.get(player.deckId),
       })),
+      deckDesigns: DECK_DESIGNS,
     };
   }
 
@@ -149,4 +221,4 @@ class RoomService {
   }
 }
 
-module.exports = { RoomService };
+module.exports = { RoomService, DECK_DESIGNS };

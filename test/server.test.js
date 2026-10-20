@@ -14,6 +14,10 @@ test('serves the game and supports authenticated phone room flow', async (contex
   assert.equal(page.status, 200);
   assert.match(await page.text(), /Create a room/);
   assert.deepEqual(await (await fetch(`${baseUrl}/health`)).json(), { status: 'ok' });
+  const turnSound = await fetch(`${baseUrl}/audio/turn-notification.wav`);
+  assert.equal(turnSound.status, 200);
+  assert.equal(turnSound.headers.get('content-type'), 'audio/wav');
+  assert.ok((await turnSound.arrayBuffer()).byteLength > 44);
 
   const hostResponse = await fetch(`${baseUrl}/api/rooms`, {
     method: 'POST',
@@ -30,6 +34,28 @@ test('serves the game and supports authenticated phone room flow', async (contex
   assert.equal(guestResponse.status, 200);
   const guest = await guestResponse.json();
 
+  const deckResponse = await fetch(`${baseUrl}/api/rooms/${host.roomCode}/deck`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${guest.token}`,
+    },
+    body: JSON.stringify({ deckId: 'violet' }),
+  });
+  assert.equal(deckResponse.status, 200);
+  assert.equal((await deckResponse.json()).lobbyPlayers.find((player) => player.isYou).deckId, 'violet');
+
+  const chatResponse = await fetch(`${baseUrl}/api/rooms/${host.roomCode}/chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${guest.token}`,
+    },
+    body: JSON.stringify({ message: 'Hi from my phone!' }),
+  });
+  assert.equal(chatResponse.status, 200);
+  assert.equal((await chatResponse.json()).chat[0].text, 'Hi from my phone!');
+
   const unauthorized = await fetch(`${baseUrl}/api/rooms/${host.roomCode}`);
   assert.equal(unauthorized.status, 400);
   const started = await fetch(`${baseUrl}/api/rooms/${host.roomCode}/start`, {
@@ -39,6 +65,12 @@ test('serves the game and supports authenticated phone room flow', async (contex
   });
   assert.equal(started.status, 200);
   assert.equal((await started.json()).stage, 'playing');
+  const hostStateResponse = await fetch(`${baseUrl}/api/rooms/${host.roomCode}`, {
+    headers: { Authorization: `Bearer ${host.token}` },
+  });
+  const hostState = await hostStateResponse.json();
+  assert.equal(hostState.players.find((player) => player.name === 'Friend').deckId, 'violet');
+  assert.equal(typeof hostState.turnSequence, 'number');
 
   const guestStateResponse = await fetch(`${baseUrl}/api/rooms/${host.roomCode}`, {
     headers: { Authorization: `Bearer ${guest.token}` },

@@ -153,6 +153,7 @@ class WebGame {
       isOut: false,
     }));
     this.gameNumber = (this.gameNumber || 0) + 1;
+    this.turnSequence = 0;
     this.log = [];
     this.direction = 1;
     this.directionLocked = false;
@@ -214,11 +215,13 @@ class WebGame {
         const index = this.initialResponseOrder[(position + step) % this.initialResponseOrder.length];
         if (!this.players[index].isOut) {
           this.turnIndex = index;
+          this.turnSequence++;
           return;
         }
       }
     }
     this.turnIndex = this.nextActiveIndex(this.turnIndex);
+    this.turnSequence++;
   }
 
   action(action, cardIds = [], playerId = 'you') {
@@ -266,12 +269,13 @@ class WebGame {
     }
 
     const previousPlay = this.currentPlay;
+    const playedCards = play.type === 'straight' ? [...cards].sort(compareCards) : cards;
     player.hand = player.hand.filter((card) => !cardIds.includes(card.id));
-    this.currentPlay = { ...play, cards, playerId: player.id, playerName: player.name };
+    this.currentPlay = { ...play, cards: playedCards, playerId: player.id, playerName: player.name };
     this.lastPlayerIndex = this.turnIndex;
     this.passCount = 0;
     const handName = HAND_NAMES[play.type];
-    this.log.push(`${player.name} plays ${handName}: ${cards.map(cardLabel).join(' ')}.`);
+    this.log.push(`${player.name} plays ${handName}: ${playedCards.map(cardLabel).join(' ')}.`);
 
     if (this.openingLead) this.openingLead = false;
     else if (!this.directionLocked && previousPlay) {
@@ -313,6 +317,7 @@ class WebGame {
     this.turnIndex = this.players[this.lastPlayerIndex] && !this.players[this.lastPlayerIndex].isOut
       ? this.lastPlayerIndex
       : this.nextActiveIndex(this.lastPlayerIndex);
+    this.turnSequence++;
     this.leadIndex = this.turnIndex;
     const player = this.players[this.turnIndex];
     this.message = `Everyone passed. ${player.name} leads a new hand.`;
@@ -358,6 +363,7 @@ class WebGame {
       direction: this.direction === 1 ? 'Clockwise' : 'Counter-clockwise',
       directionLocked: this.directionLocked,
       turnPlayerId: this.players[this.turnIndex]?.id,
+      turnSequence: this.turnSequence,
       canAct: this.stage === 'playing' && this.players[this.turnIndex]?.id === viewerId,
       openingLead: this.openingLead,
       currentPlay: this.currentPlay

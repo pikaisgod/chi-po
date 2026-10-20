@@ -32,9 +32,12 @@ so an application restart clears active rooms.
 
 - One person creates a room and chooses a capacity from 2 to 4. Friends join
   with the link or six-character room code and choose a name.
+- Each player can choose a built-in card-back design in the lobby. Their
+  selected design appears on their hidden cards for everyone in the room.
 - The host starts when at least two players have joined. The 3♦ holder leads.
 - Each player sees only their own hand. The browser refreshes the shared game
-  state while players take turns.
+  state while players take turns. Room chat is available in both the lobby and
+  the game; messages are limited to 300 characters.
 - A room's host can start a new game after the current game ends.
 
 ## Rules implemented
@@ -63,3 +66,12 @@ so an application restart clears active rooms.
 - `render.yaml` - Render deployment configuration
 
 Run the built-in tests with `npm test`.
+
+## Turn sound
+
+The browser plays `public/audio/turn-notification.wav` when it becomes your
+turn. Replace that WAV file with another WAV audio file to change the alert;
+keep the same filename and location. Players can toggle turn sound on or off
+in the game, and the preference is saved on their device. If a browser blocks
+audio before the player interacts with the page, tap the sound toggle once to
+enable it.

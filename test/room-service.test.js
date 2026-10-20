@@ -74,3 +74,48 @@ test('validates room sizes and player names', () => {
   rooms.joinRoom({ code: host.roomCode, name: 'Friend' });
   assert.throws(() => rooms.startGame(host.roomCode, 'not-the-host-token'), /not in the room/);
 });
+
+test('shares validated chat messages with room members only', () => {
+  const rooms = new RoomService();
+  const host = rooms.createRoom({ name: 'Host', maxPlayers: 2 });
+  const guest = rooms.joinRoom({ code: host.roomCode, name: 'Friend' });
+
+  const sentState = rooms.sendChat(host.roomCode, host.token, '  Hello friends!  ');
+  assert.deepEqual(sentState.chat.map(({ playerName, text }) => ({ playerName, text })), [
+    { playerName: 'Host', text: 'Hello friends!' },
+  ]);
+  assert.equal(rooms.stateFor(host.roomCode, guest.token).chat[0].text, 'Hello friends!');
+  assert.throws(() => rooms.sendChat(host.roomCode, 'invalid-token', 'Secret'), /not in the room/);
+  assert.throws(() => rooms.sendChat(host.roomCode, host.token, '   '), /between 1 and 300/);
+  assert.throws(() => rooms.sendChat(host.roomCode, host.token, 'x'.repeat(301)), /between 1 and 300/);
+});
+
+test('keeps only the latest 100 room chat messages', () => {
+  const rooms = new RoomService();
+  const host = rooms.createRoom({ name: 'Host', maxPlayers: 2 });
+  for (let index = 0; index < 105; index++) {
+    rooms.sendChat(host.roomCode, host.token, `Message ${index}`);
+  }
+
+  const messages = rooms.stateFor(host.roomCode, host.token).chat;
+  assert.equal(messages.length, 100);
+  assert.equal(messages[0].text, 'Message 5');
+  assert.equal(messages[99].text, 'Message 104');
+});
+
+test('lets each lobby player choose a built-in deck and shares the choice in game', () => {
+  const rooms = new RoomService();
+  const host = rooms.createRoom({ name: 'Host', maxPlayers: 2 });
+  const guest = rooms.joinRoom({ code: host.roomCode, name: 'Friend' });
+
+  assert.equal(host.state.lobbyPlayers[0].deckId, 'classic');
+  const guestChoice = rooms.setDeckDesign(host.roomCode, guest.token, 'ocean');
+  assert.equal(guestChoice.lobbyPlayers.find((player) => player.isYou).deckName, 'Ocean Blue');
+  assert.equal(rooms.stateFor(host.roomCode, host.token).lobbyPlayers.find((player) => player.name === 'Friend').deckId, 'ocean');
+  assert.throws(() => rooms.setDeckDesign(host.roomCode, guest.token, 'unlisted'), /available deck designs/);
+
+  const gameState = rooms.startGame(host.roomCode, host.token);
+  assert.equal(gameState.players.find((player) => player.name === 'Friend').deckId, 'ocean');
+  assert.equal(gameState.players.find((player) => player.name === 'Host').deckId, 'classic');
+  assert.throws(() => rooms.setDeckDesign(host.roomCode, guest.token, 'crimson'), /only be changed in the lobby/);
+});

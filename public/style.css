@@ -87,6 +87,8 @@ h1, h2 { margin: 5px 0 0; font: 600 22px 'Playfair Display', Georgia, serif; }
 .action-button.primary:hover:not(:disabled) { border-color: #a1edba; background: #91e6af; }
 .action-button:disabled, select:disabled { cursor: not-allowed; opacity: .45; }
 .new-game-button { margin-left: auto; }
+.sound-toggle[aria-pressed="false"] { color: var(--muted); }
+.turn-sound-status { min-height: 14px; margin: 7px 0 0; color: var(--muted); font-size: 10px; }
 .error-message { min-height: 17px; margin-top: 8px; color: #f09595; font-size: 11px; }
 .side-column { display: flex; flex-direction: column; gap: 14px; }
 .panel { padding: 18px; }
@@ -121,12 +123,46 @@ h1, h2 { margin: 5px 0 0; font: 600 22px 'Playfair Display', Georgia, serif; }
 .roster-title span { color: var(--muted); font: 11px 'DM Mono', monospace; }
 .room-roster { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
 .room-roster li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 6px; color: #dce5dd; font-size: 13px; }
+.room-player-identity { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.room-player-deck { color: var(--muted); font-size: 10px; }
 .host-badge, .player-badge { color: var(--green); font: 9px 'DM Mono', monospace; letter-spacing: .1em; }
 .player-badge { color: var(--muted); }
 .lobby-controls { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 20px; }
 .lobby-controls .room-intro { margin: 0; }
 .table-room-code { color: var(--green); font: 10px 'DM Mono', monospace; letter-spacing: .1em; }
 .seat.is-you { border-color: rgb(120 217 160 / 54%); }
+.deck-picker { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; padding: 16px; border: 1px solid var(--line); border-radius: 8px; background: rgb(10 19 14 / 25%); }
+.deck-picker h2 { margin: 0; font: 600 16px 'Playfair Display', Georgia, serif; }
+.deck-picker .room-intro { margin: 5px 0 0; font-size: 11px; }
+.deck-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
+.deck-option { display: flex; min-height: 77px; flex-direction: column; align-items: center; justify-content: center; gap: 7px; padding: 8px; border: 1px solid var(--line); border-radius: 6px; color: #c0cbc4; background: #111a15; cursor: pointer; font-size: 10px; }
+.deck-option:hover { border-color: #84988a; }
+.deck-option.is-selected { border-color: var(--green); color: var(--green); box-shadow: inset 0 0 0 1px var(--green); }
+.deck-option:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.deck-option-preview { position: relative; display: block; width: 30px; height: 40px; border: 2px solid #e2dfd3; border-radius: 4px; box-shadow: 0 3px 8px rgb(0 0 0 / 32%); }
+.deck-swatch { display: block; flex: 0 0 auto; width: 20px; height: 28px; border: 1px solid #e2dfd3; border-radius: 3px; }
+.card-back { display: block; width: 15px; height: 21px; margin-right: -9px; border: 1px solid #e2dfd3; border-radius: 3px; box-shadow: 0 2px 4px rgb(0 0 0 / 34%); }
+.deck-back--classic { background: repeating-linear-gradient(45deg, #375b45, #375b45 3px, #244532 3px, #244532 6px); }
+.deck-back--ocean { background: radial-gradient(ellipse, #9ad9e2 1px, transparent 2px) 0 0 / 8px 8px, linear-gradient(135deg, #155d83, #12314c); }
+.deck-back--crimson { background: repeating-linear-gradient(135deg, transparent, transparent 4px, rgb(242 208 125 / 74%) 5px, transparent 6px), linear-gradient(135deg, #8f2735, #481621); }
+.deck-back--violet { background: radial-gradient(circle at 30% 30%, #e3b9ff 1px, transparent 2px) 0 0 / 9px 9px, linear-gradient(135deg, #603d91, #241a48); }
+.deck-back--sunset { background: repeating-linear-gradient(0deg, transparent, transparent 4px, rgb(255 223 166 / 70%) 5px, transparent 6px), linear-gradient(135deg, #f18c43, #9b354a 62%, #392453); }
+.opponent-cards { display: flex; grid-column: 2; align-items: center; min-height: 22px; padding-top: 4px; }
+.chat-panel { min-width: 0; }
+.chat-messages { display: flex; min-height: 72px; max-height: 260px; flex-direction: column; gap: 11px; overflow-y: auto; margin: 12px 0; padding: 0; list-style: none; }
+.chat-messages li { min-width: 0; padding: 8px 10px; border: 1px solid rgb(202 222 207 / 10%); border-radius: 6px; background: rgb(10 19 14 / 27%); }
+.chat-message-heading { display: flex; justify-content: space-between; gap: 8px; color: #aebbb1; font-size: 10px; }
+.chat-message-heading strong { overflow: hidden; color: var(--green); text-overflow: ellipsis; }
+.chat-message-heading time { flex: 0 0 auto; color: var(--muted); font: 9px 'DM Mono', monospace; }
+.chat-messages li p { margin: 5px 0 0; color: var(--ink); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; white-space: pre-wrap; }
+.chat-messages .empty-chat { align-self: center; border: 0; color: var(--muted); background: transparent; font-size: 10px; }
+.chat-form { display: flex; gap: 7px; }
+.chat-form input { width: 100%; min-width: 0; min-height: 40px; padding: 0 10px; border: 1px solid #3a4a41; border-radius: 6px; color: var(--ink); background: #111a15; font-size: 11px; }
+.chat-form input:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.chat-form button { flex: 0 0 auto; min-height: 40px; padding: 0 12px; }
+.chat-form button:disabled { cursor: wait; opacity: .6; }
+.chat-error { min-height: 14px; margin: 6px 0 0; color: #f09595; font-size: 10px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; clip-path: inset(50%); }
 
 @media (max-width: 1040px) {
   .app-shell { padding: 0 27px; }

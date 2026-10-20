@@ -9,6 +9,7 @@ const contentTypes = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
+  '.wav': 'audio/wav',
 };
 
 function sendJson(response, statusCode, data) {
@@ -65,8 +66,8 @@ function createServer() {
       } else if (request.method === 'GET' && /^\/api\/rooms\/[A-Z0-9]+$/.test(url.pathname)) {
         const code = url.pathname.split('/').pop();
         sendJson(response, 200, rooms.stateFor(code, getToken(request)));
-      } else if (request.method === 'POST' && /^\/api\/rooms\/[A-Z0-9]+\/(start|action|new-game)$/.test(url.pathname)) {
-        const [, code, operation] = url.pathname.match(/^\/api\/rooms\/([A-Z0-9]+)\/(start|action|new-game)$/);
+      } else if (request.method === 'POST' && /^\/api\/rooms\/[A-Z0-9]+\/(start|action|new-game|chat|deck)$/.test(url.pathname)) {
+        const [, code, operation] = url.pathname.match(/^\/api\/rooms\/([A-Z0-9]+)\/(start|action|new-game|chat|deck)$/);
         const token = getToken(request);
         if (operation === 'start') {
           sendJson(response, 200, rooms.startGame(code, token));
@@ -74,11 +75,17 @@ function createServer() {
           sendJson(response, 200, rooms.newGame(code, token));
         } else {
           const body = await readJson(request);
-          sendJson(response, 200, rooms.action(code, token, body.action, body.cardIds));
+          if (operation === 'chat') {
+            sendJson(response, 200, rooms.sendChat(code, token, body.message));
+          } else if (operation === 'deck') {
+            sendJson(response, 200, rooms.setDeckDesign(code, token, body.deckId));
+          } else {
+            sendJson(response, 200, rooms.action(code, token, body.action, body.cardIds));
+          }
         }
       } else if (request.method === 'GET' && url.pathname === '/') {
         serveFile(response, 'index.html');
-      } else if (request.method === 'GET' && ['/app.js', '/style.css'].includes(url.pathname)) {
+      } else if (request.method === 'GET' && ['/app.js', '/style.css', '/audio/turn-notification.wav'].includes(url.pathname)) {
         serveFile(response, url.pathname.slice(1));
       } else {
         sendJson(response, 404, { error: 'Not found.' });
