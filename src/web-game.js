@@ -161,6 +161,8 @@ class WebGame {
     this.lastPlayerIndex = null;
     this.passCount = 0;
     this.openingLead = true;
+    this.initialResponseOpen = false;
+    this.initialResponsePassed = new Set();
     this.initialResponseOrder = [];
     this.finishOrder = [];
 
@@ -209,11 +211,11 @@ class WebGame {
   }
 
   advanceTurn() {
-    if (!this.directionLocked && this.currentPlay) {
+    if (this.initialResponseOpen && this.currentPlay) {
       const position = this.initialResponseOrder.indexOf(this.turnIndex);
       for (let step = 1; step <= this.initialResponseOrder.length; step++) {
         const index = this.initialResponseOrder[(position + step) % this.initialResponseOrder.length];
-        if (!this.players[index].isOut) {
+        if (this.isInitialResponder(index) && !this.initialResponsePassed.has(index)) {
           this.turnIndex = index;
           this.turnSequence++;
           return;
@@ -224,9 +226,40 @@ class WebGame {
     this.turnSequence++;
   }
 
+  isInitialResponder(playerIndex) {
+    return this.initialResponseOpen &&
+      playerIndex !== this.lastPlayerIndex &&
+      !this.players[playerIndex].isOut;
+  }
+
+  canPlayerAct(playerIndex) {
+    if (this.stage !== 'playing' || !this.players[playerIndex]?.isHuman || this.players[playerIndex].isOut) {
+      return false;
+    }
+    if (this.initialResponseOpen) {
+      return this.isInitialResponder(playerIndex) && !this.initialResponsePassed.has(playerIndex);
+    }
+    return this.turnIndex === playerIndex;
+  }
+
+  passInitialResponse(playerIndex) {
+    this.initialResponsePassed.add(playerIndex);
+    const responders = this.players
+      .map((entry, index) => index)
+      .filter((index) => this.isInitialResponder(index));
+    if (responders.every((index) => this.initialResponsePassed.has(index))) {
+      this.startNextTrick();
+    } else {
+      this.turnIndex = this.initialResponseOrder.find(
+        (index) => this.isInitialResponder(index) && !this.initialResponsePassed.has(index),
+      );
+    }
+  }
+
   action(action, cardIds = [], playerId = 'you') {
-    const player = this.players[this.turnIndex];
-    if (this.stage !== 'playing' || !player || !player.isHuman || player.id !== playerId) {
+    const playerIndex = this.players.findIndex((entry) => entry.id === playerId);
+    const player = this.players[playerIndex];
+    if (!player || !this.canPlayerAct(playerIndex)) {
       throw new Error('It is not your turn.');
     }
 
@@ -235,6 +268,11 @@ class WebGame {
         throw new Error('You cannot pass when leading a new play.');
       }
       this.log.push(`${player.name} passes.`);
+      if (this.initialResponseOpen) {
+        this.passInitialResponse(playerIndex);
+        this.runAiTurns();
+        return this.view(playerId);
+      }
       this.passCount++;
       if (this.passCount >= this.passesNeeded()) {
         this.startNextTrick();
@@ -270,17 +308,24 @@ class WebGame {
 
     const previousPlay = this.currentPlay;
     const playedCards = play.type === 'straight' ? [...cards].sort(compareCards) : cards;
+    const playerIndex = this.players.findIndex((entry) => entry.id === player.id);
+    this.turnIndex = playerIndex;
     player.hand = player.hand.filter((card) => !cardIds.includes(card.id));
     this.currentPlay = { ...play, cards: playedCards, playerId: player.id, playerName: player.name };
-    this.lastPlayerIndex = this.turnIndex;
+    this.lastPlayerIndex = playerIndex;
     this.passCount = 0;
     const handName = HAND_NAMES[play.type];
     this.log.push(`${player.name} plays ${handName}: ${playedCards.map(cardLabel).join(' ')}.`);
 
-    if (this.openingLead) this.openingLead = false;
+    if (this.openingLead) {
+      this.openingLead = false;
+      this.initialResponseOpen = true;
+    }
     else if (!this.directionLocked && previousPlay) {
+      this.initialResponseOpen = false;
+      this.initialResponsePassed.clear();
       this.directionLocked = true;
-      const clockwiseDistance = (this.turnIndex - this.leadIndex + this.players.length) % this.players.length;
+      const clockwiseDistance = (playerIndex - this.leadIndex + this.players.length) % this.players.length;
       this.direction = clockwiseDistance <= Math.floor(this.players.length / 2) ? 1 : -1;
       this.log.push(`Direction set ${this.direction === 1 ? 'clockwise' : 'counter-clockwise'} by the first player to beat the opening hand.`);
     }
@@ -314,6 +359,8 @@ class WebGame {
     this.currentPlay = null;
     this.passCount = 0;
     this.openingLead = false;
+    this.initialResponseOpen = false;
+    this.initialResponsePassed.clear();
     this.turnIndex = this.players[this.lastPlayerIndex] && !this.players[this.lastPlayerIndex].isOut
       ? this.lastPlayerIndex
       : this.nextActiveIndex(this.lastPlayerIndex);
@@ -343,9 +390,13 @@ class WebGame {
         this.playCards(player, choice.cards.map((card) => card.id));
       } else if (this.currentPlay && player !== this.players[this.lastPlayerIndex]) {
         this.log.push(`${player.name} passes.`);
-        this.passCount++;
-        if (this.passCount >= this.passesNeeded()) this.startNextTrick();
-        else this.advanceTurn();
+        if (this.initialResponseOpen) {
+          this.passInitialResponse(this.turnIndex);
+        } else {
+          this.passCount++;
+          if (this.passCount >= this.passesNeeded()) this.startNextTrick();
+          else this.advanceTurn();
+        }
       } else {
         const legalLead = findPlays(player.hand, null)[0];
         if (!legalLead) throw new Error(`${player.name} has no legal hand to lead.`);
@@ -364,7 +415,8 @@ class WebGame {
       directionLocked: this.directionLocked,
       turnPlayerId: this.players[this.turnIndex]?.id,
       turnSequence: this.turnSequence,
-      canAct: this.stage === 'playing' && this.players[this.turnIndex]?.id === viewerId,
+      canAct: this.canPlayerAct(this.players.findIndex((player) => player.id === viewerId)),
+      openingResponse: this.initialResponseOpen,
       openingLead: this.openingLead,
       currentPlay: this.currentPlay
         ? {
@@ -388,7 +440,7 @@ class WebGame {
         isOut: player.isOut,
         finishPlace: player.finishPlace,
         isHuman: player.isHuman,
-        isTurn: player.id === this.players[this.turnIndex]?.id && this.stage === 'playing',
+        isTurn: this.canPlayerAct(this.players.indexOf(player)),
       })),
     };
   }

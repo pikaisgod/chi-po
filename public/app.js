@@ -149,7 +149,9 @@ function renderGame(state) {
   });
   document.querySelector('#game-number').textContent = `GAME ${String(state.gameNumber).padStart(2, '0')}`;
   document.querySelector('#table-room-code').textContent = `ROOM ${state.roomCode}`;
-  document.querySelector('#table-message').textContent = state.message;
+  document.querySelector('#table-message').textContent = state.openingResponse
+    ? 'Beat the opening hand first to set direction.'
+    : state.message;
   document.querySelector('#direction').textContent = state.direction.toUpperCase();
   document.querySelector('#trick-leader').textContent = `LEAD ${state.leadPlayerName || '—'}`;
   document.querySelector('#players-in-game').textContent = `${state.playerCount} PLAYERS`;
@@ -191,7 +193,9 @@ function renderGame(state) {
       }
     }
     const status = seat.querySelector('.seat-status');
-    status.textContent = player.isOut ? `#${player.finishPlace}` : player.isTurn ? 'YOUR TURN' : '';
+    status.textContent = player.isOut
+      ? `#${player.finishPlace}`
+      : player.isTurn ? state.openingResponse ? 'RACE TO BEAT' : 'YOUR TURN' : '';
   }
   for (let index = state.players.length; index < 4; index++) {
     document.querySelector(`#seat-${index}`).hidden = true;
@@ -237,7 +241,9 @@ function renderGame(state) {
   document.querySelector('#pass-button').disabled = !active || !state.currentPlay;
   document.querySelector('#action-title').textContent = state.stage === 'finished'
     ? 'Game over'
-    : state.canAct ? 'Your turn' : 'Waiting for your turn';
+    : state.canAct && state.openingResponse
+      ? 'Play first to set direction'
+      : state.canAct ? 'Your turn' : 'Waiting for your turn';
   document.querySelector('#new-game-button').disabled = busy || !state.isHost;
   const soundToggle = document.querySelector('#turn-sound-toggle');
   soundToggle.textContent = `Turn sound: ${soundEnabled ? 'on' : 'off'}`;

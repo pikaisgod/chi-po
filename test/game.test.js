@@ -104,6 +104,78 @@ test('the opening player must include 3♦ and the first successful response set
   assert.equal(game.directionLocked, true);
 });
 
+function createOpeningRaceGame() {
+  const players = Array.from({ length: 4 }, (_, index) => ({
+    id: `player-${index}`,
+    name: `Player ${index}`,
+    isHuman: true,
+  }));
+  const game = new WebGame(players);
+  game.runAiTurns = () => {};
+  game.startNewGame(4);
+
+  const starterIndex = game.players.findIndex((player) => player.hand.some((entry) => entry.id === '3-♦'));
+  const clockwiseIndex = (starterIndex + 1) % 4;
+  const oppositeIndex = (starterIndex + 2) % 4;
+  const counterClockwiseIndex = (starterIndex + 3) % 4;
+  game.players[starterIndex].hand = [card('3', '♦'), card('7', '♦')];
+  game.players[clockwiseIndex].hand = [card('4', '♦'), card('2', '♦'), card('2', '♣')];
+  game.players[oppositeIndex].hand = [card('6', '♦')];
+  game.players[counterClockwiseIndex].hand = [card('5', '♦')];
+  game.playCards(game.players[starterIndex], ['3-♦']);
+
+  return { game, starterIndex, clockwiseIndex, oppositeIndex, counterClockwiseIndex };
+}
+
+test('both sides can race, and the first legal response sets direction', () => {
+  const clockwiseRace = createOpeningRaceGame();
+  const { game, clockwiseIndex: clockwiseWinner, counterClockwiseIndex } = clockwiseRace;
+  assert.equal(game.view(game.players[clockwiseWinner].id).canAct, true);
+  assert.equal(game.view(game.players[counterClockwiseIndex].id).canAct, true);
+
+  assert.throws(
+    () => game.action('play', ['2-♦', '2-♣'], game.players[clockwiseWinner].id),
+    /does not beat the current play/,
+  );
+  assert.equal(game.directionLocked, false);
+  game.action('play', ['4-♦'], game.players[clockwiseWinner].id);
+  assert.equal(game.direction, 1);
+  assert.equal(game.directionLocked, true);
+  assert.equal(game.initialResponseOpen, false);
+
+  const counterClockwiseRace = createOpeningRaceGame();
+  const { game: otherGame, counterClockwiseIndex: counterClockwiseWinner } = counterClockwiseRace;
+  otherGame.action('play', ['5-♦'], otherGame.players[counterClockwiseWinner].id);
+  assert.equal(otherGame.direction, -1);
+  assert.equal(otherGame.directionLocked, true);
+});
+
+test('opening race passes are final, and all passes return the lead to the starter', () => {
+  const { game, starterIndex, clockwiseIndex, oppositeIndex, counterClockwiseIndex } = createOpeningRaceGame();
+
+  game.action('pass', [], game.players[clockwiseIndex].id);
+  assert.equal(game.view(game.players[clockwiseIndex].id).canAct, false);
+  assert.throws(() => game.action('pass', [], game.players[clockwiseIndex].id), /not your turn/);
+  game.action('pass', [], game.players[oppositeIndex].id);
+  game.action('pass', [], game.players[counterClockwiseIndex].id);
+
+  assert.equal(game.currentPlay, null);
+  assert.equal(game.turnIndex, starterIndex);
+  assert.equal(game.direction, 1);
+  assert.equal(game.initialResponseOpen, false);
+});
+
+test('a racing response after the winner is rejected and normal turns follow its direction', () => {
+  const { game, starterIndex, clockwiseIndex, oppositeIndex, counterClockwiseIndex } = createOpeningRaceGame();
+  game.action('play', ['5-♦'], game.players[counterClockwiseIndex].id);
+
+  assert.equal(game.turnIndex, oppositeIndex);
+  assert.throws(() => game.action('play', ['4-♦'], game.players[clockwiseIndex].id), /not your turn/);
+  game.action('play', ['6-♦'], game.players[oppositeIndex].id);
+  assert.equal(game.turnIndex, clockwiseIndex);
+  assert.equal(game.turnIndex, (starterIndex + 1) % 4);
+});
+
 test('the last player leads the next trick, unless they have already gone out', () => {
   const game = new WebGame();
   game.startNewGame(3);

@@ -51,8 +51,10 @@ so an application restart clears active rooms.
 - Beat the current hand with the same type. A boat beats a straight, and a bomb
   beats any hand; only a higher bomb beats a bomb. When everyone else passes,
   the last player to play leads the next hand.
-- The first player to beat the opening play sets direction for that game. If
-  nobody beats it, direction defaults to clockwise.
+- After the opening play, all other players can race to beat it. The first
+  legal response received by the server sets direction for that game; passing
+  removes that player from the race. If nobody beats the opening play,
+  direction defaults to clockwise.
 - With two players, the first player out wins. With three or four, play
   continues until all but one player has gone out; the remaining player loses.
 
