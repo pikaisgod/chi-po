@@ -10,6 +10,7 @@ const contentTypes = {
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.wav': 'audio/wav',
+  '.m4a': 'audio/mp4',
 };
 
 function sendJson(response, statusCode, data) {
@@ -85,7 +86,10 @@ function createServer() {
         }
       } else if (request.method === 'GET' && url.pathname === '/') {
         serveFile(response, 'index.html');
-      } else if (request.method === 'GET' && ['/app.js', '/style.css', '/audio/turn-notification.wav'].includes(url.pathname)) {
+      } else if (request.method === 'GET' && (
+        ['/app.js', '/style.css', '/audio/turn-notification.wav'].includes(url.pathname) ||
+        /^\/audio\/[a-z0-9-]+\.m4a$/.test(url.pathname)
+      )) {
         serveFile(response, url.pathname.slice(1));
       } else {
         sendJson(response, 404, { error: 'Not found.' });

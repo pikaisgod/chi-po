@@ -18,6 +18,21 @@ test('serves the game and supports authenticated phone room flow', async (contex
   assert.equal(turnSound.status, 200);
   assert.equal(turnSound.headers.get('content-type'), 'audio/wav');
   assert.ok((await turnSound.arrayBuffer()).byteLength > 44);
+  for (const sound of [
+    'awhhhhhhh',
+    'bing',
+    'bullshit',
+    'chinese-time',
+    'femboys',
+    'here-we-go-again',
+    'its-my-turn',
+  ]) {
+    const audio = await fetch(`${baseUrl}/audio/${sound}.m4a`);
+    assert.equal(audio.status, 200);
+    assert.equal(audio.headers.get('content-type'), 'audio/mp4');
+    assert.ok((await audio.arrayBuffer()).byteLength > 0);
+  }
+  assert.equal((await fetch(`${baseUrl}/audio/not-a-notification.m4a`)).status, 404);
 
   const hostResponse = await fetch(`${baseUrl}/api/rooms`, {
     method: 'POST',

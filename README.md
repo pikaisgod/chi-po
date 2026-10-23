@@ -71,9 +71,7 @@ Run the built-in tests with `npm test`.
 
 ## Turn sound
 
-The browser plays `public/audio/turn-notification.wav` when it becomes your
-turn. Replace that WAV file with another WAV audio file to change the alert;
-keep the same filename and location. Players can toggle turn sound on or off
-in the game, and the preference is saved on their device. If a browser blocks
-audio before the player interacts with the page, tap the sound toggle once to
-enable it.
+The browser randomly plays one of the sound clips in `public/audio/` when it
+becomes your turn. Players can toggle turn sound on or off in the game, and the
+preference is saved on their device. If a browser blocks audio before the
+player interacts with the page, tap the sound toggle once to enable it.

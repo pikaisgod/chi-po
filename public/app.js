@@ -15,8 +15,19 @@ let busy = false;
 let pendingDeckChoice = null;
 let soundEnabled = localStorage.getItem('chiPoTurnSound') !== 'off';
 let lastNotifiedTurnKey = null;
-const turnAudio = new Audio('/audio/turn-notification.wav');
-turnAudio.preload = 'auto';
+const turnAudios = [
+  'awhhhhhhh',
+  'bing',
+  'bullshit',
+  'chinese-time',
+  'femboys',
+  'here-we-go-again',
+  'its-my-turn',
+].map((name) => {
+  const audio = new Audio(`/audio/${name}.m4a`);
+  audio.preload = 'auto';
+  return audio;
+});
 const queryRoom = new URLSearchParams(window.location.search).get('room');
 if (queryRoom && credentials?.roomCode !== queryRoom.toUpperCase()) {
   credentials = null;
@@ -268,6 +279,7 @@ function render(state) {
 }
 
 function playTurnSound() {
+  const turnAudio = turnAudios[Math.floor(Math.random() * turnAudios.length)];
   turnAudio.currentTime = 0;
   turnAudio.play().then(() => {
     document.querySelector('#turn-sound-status').textContent = '';
